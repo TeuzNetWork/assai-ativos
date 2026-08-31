@@ -9,16 +9,23 @@ const equipamentosPadrao = [
   { id: "BAL-HF-01", setor: "Hortifrúti", tipo: "Balança", ip: "192.168.1.60", modelo: "Toledo Prix 5", local: "Ilha Central" }
 ];
 
-// Estado
-let setores = JSON.parse(localStorage.getItem('ti_assai_setores')) || setoresPadrao;
-let equipamentos = JSON.parse(localStorage.getItem('ti_assai_ativos')) || equipamentosPadrao;
+// Carregamento Seguro do LocalStorage
+let setores = JSON.parse(localStorage.getItem('ti_assai_setores'));
+if (!Array.isArray(setores) || setores.length === 0) {
+  setores = [...setoresPadrao];
+}
+
+let equipamentos = JSON.parse(localStorage.getItem('ti_assai_ativos'));
+if (!Array.isArray(equipamentos)) {
+  equipamentos = [...equipamentosPadrao];
+}
 
 function salvarStorage() {
   localStorage.setItem('ti_assai_setores', JSON.stringify(setores));
   localStorage.setItem('ti_assai_ativos', JSON.stringify(equipamentos));
 }
 
-// Renderizar Opções dos Selects de Setores
+// Renderizar Selects
 function renderizarSelectsSetores() {
   const filtroSetor = document.getElementById('filtroSetor');
   const cadSetor = document.getElementById('cadSetor');
@@ -37,11 +44,16 @@ function renderizarSelectsSetores() {
   filtroSetor.value = valorFiltroAtual;
 }
 
-// Renderizar Modal de Gerenciamento de Setores
+// Renderizar Gerenciador de Setores
 function renderizarListaSetores() {
   const lista = document.getElementById('listaSetores');
   if (!lista) return;
   lista.innerHTML = '';
+
+  if (setores.length === 0) {
+    lista.innerHTML = '<li class="p-3 text-xs text-slate-400 text-center">Nenhum setor cadastrado.</li>';
+    return;
+  }
 
   setores.forEach((setor, index) => {
     const li = document.createElement('li');
@@ -87,7 +99,7 @@ function renderizarListaSetores() {
   });
 }
 
-// Renderizar Grid de Equipamentos
+// Renderizar Grid
 function renderizarGrid(lista) {
   const container = document.getElementById('gridEquipamentos');
   if (!container) return;
@@ -106,7 +118,7 @@ function renderizarGrid(lista) {
     card.innerHTML = `
       <div>
         <div class="flex justify-between items-start mb-2">
-          <span class="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800">${item.setor}</span>
+          <span class="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800">${item.setor || 'Sem Setor'}</span>
           <span class="text-xs text-slate-500 font-medium">${item.tipo}</span>
         </div>
         <h3 class="text-lg font-bold text-slate-900">${item.id}</h3>
@@ -144,11 +156,12 @@ function filtrarEquipamentos() {
   const setor = filtroSetor.value;
 
   const resultado = equipamentos.filter(eq => {
+    const eqSetor = eq.setor || '';
     const atendeBusca = eq.id.toLowerCase().includes(busca) || 
                         eq.ip.toLowerCase().includes(busca) || 
                         eq.modelo.toLowerCase().includes(busca) || 
-                        eq.setor.toLowerCase().includes(busca);
-    const atendeSetor = setor === "" || eq.setor === setor;
+                        eqSetor.toLowerCase().includes(busca);
+    const atendeSetor = setor === "" || eqSetor === setor;
     return atendeBusca && atendeSetor;
   });
 
@@ -159,7 +172,7 @@ async function gerarQrCode(id) {
   const item = equipamentos.find(e => e.id === id);
   if (!item) return;
 
-  document.getElementById('qrNome').innerText = `${item.id} (${item.setor})`;
+  document.getElementById('qrNome').innerText = `${item.id} (${item.setor || ''})`;
   document.getElementById('qrIp').innerText = `IP: ${item.ip}`;
   document.getElementById('qrModelo').innerText = item.modelo;
 
@@ -187,7 +200,7 @@ function exibirDetalhesPorUrl() {
     const item = equipamentos.find(e => e.id.toLowerCase() === ativoId.toLowerCase());
     if (item) {
       document.getElementById('detalheId').innerText = item.id;
-      document.getElementById('detalheSetor').innerText = item.setor;
+      document.getElementById('detalheSetor').innerText = item.setor || 'Não definido';
       document.getElementById('detalheIp').innerText = item.ip;
       document.getElementById('detalheTipo').innerText = item.tipo;
       document.getElementById('detalheModelo').innerText = item.modelo;
@@ -230,7 +243,7 @@ document.getElementById('formSetor')?.addEventListener('submit', (e) => {
     const antigo = setores[idx];
     setores[idx] = nome;
     equipamentos.forEach(eq => {
-      if (eq.sector === antigo || eq.setor === antigo) eq.setor = nome;
+      if (eq.setor === antigo) eq.setor = nome;
     });
   } else {
     if (setores.includes(nome)) {
