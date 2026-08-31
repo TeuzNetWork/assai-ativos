@@ -1,31 +1,30 @@
 import './style.css';
 import QRCode from 'qrcode';
+import { createClient } from '@supabase/supabase-js';
 
-// Dados Padrão
-const setoresPadrao = ["Açougue", "Hortifrúti", "Frente de Caixa", "Padaria", "Depósito"];
-const equipamentosPadrao = [
-  { id: "BAL-AC-01", setor: "Açougue", tipo: "Balança", ip: "192.168.1.50", modelo: "Toledo Prix 5", local: "Ponto A-12" },
-  { id: "IMP-AC-01", setor: "Açougue", tipo: "Impressora Cartazista", ip: "192.168.1.51", modelo: "Zebra ZD220", local: "Ponto A-13" },
-  { id: "BAL-HF-01", setor: "Hortifrúti", tipo: "Balança", ip: "192.168.1.60", modelo: "Toledo Prix 5", local: "Ilha Central" }
-];
+// CONEXÃO SUPABASE
+const SUPABASE_URL = 'https://ktfzvlotpowhwumpjbjw.supabase.co'; 
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0Znp2bG90cG93aHd1d3BqYmp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxODAzMzAsImV4cCI6MjEwMzc1NjMzMH0.Epox8sNR_-mRRUvXyFUFnJ0Qjjo8m2S9xQZNj_PFj-Y'; 
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// Carregamento Seguro do LocalStorage
-let setores = JSON.parse(localStorage.getItem('ti_assai_setores'));
-if (!Array.isArray(setores) || setores.length === 0) {
-  setores = [...setoresPadrao];
+// ESTADOS LOCAIS
+let setores = [];
+let equipamentos = [];
+
+// CARREGAR DADOS DO SUPABASE
+async function carregarDados() {
+  const { data: dataSetores } = await supabase.from('setores').select('nome').order('nome');
+  if (dataSetores) setores = dataSetores.map(s => s.nome);
+
+  const { data: dataEquip } = await supabase.from('equipamentos').select('*').order('created_at', { ascending: false });
+  if (dataEquip) equipamentos = dataEquip;
+
+  renderizarSelectsSetores();
+  filtrarEquipamentos();
+  exibirDetalhesPorUrl();
 }
 
-let equipamentos = JSON.parse(localStorage.getItem('ti_assai_ativos'));
-if (!Array.isArray(equipamentos)) {
-  equipamentos = [...equipamentosPadrao];
-}
-
-function salvarStorage() {
-  localStorage.setItem('ti_assai_setores', JSON.stringify(setores));
-  localStorage.setItem('ti_assai_ativos', JSON.stringify(equipamentos));
-}
-
-// Renderizar Selects
+// RENDERIZAR SELECTS
 function renderizarSelectsSetores() {
   const filtroSetor = document.getElementById('filtroSetor');
   const cadSetor = document.getElementById('cadSetor');
@@ -44,7 +43,7 @@ function renderizarSelectsSetores() {
   filtroSetor.value = valorFiltroAtual;
 }
 
-// Renderizar Gerenciador de Setores
+// RENDERIZAR GERENCIADOR DE SETORES
 function renderizarListaSetores() {
   const lista = document.getElementById('listaSetores');
   if (!lista) return;
@@ -55,32 +54,19 @@ function renderizarListaSetores() {
     return;
   }
 
-  setores.forEach((setor, index) => {
+  setores.forEach(setor => {
     const li = document.createElement('li');
     li.className = "flex justify-between items-center p-3 hover:bg-slate-50";
     li.innerHTML = `
       <span class="text-sm font-semibold text-slate-800">${setor}</span>
-      <div class="flex gap-2">
-        <button data-index="${index}" class="btn-editar-setor text-xs font-bold text-amber-600 hover:text-amber-800">Editar</button>
-        <button data-index="${index}" class="btn-excluir-setor text-xs font-bold text-red-500 hover:text-red-700">Excluir</button>
-      </div>
+      <button data-nome="${setor}" class="btn-excluir-setor text-xs font-bold text-red-500 hover:text-red-700">Excluir</button>
     `;
     lista.appendChild(li);
   });
 
-  document.querySelectorAll('.btn-editar-setor').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const idx = e.currentTarget.getAttribute('data-index');
-      document.getElementById('inputSetorNome').value = setores[idx];
-      document.getElementById('setorEditIdx').value = idx;
-      document.getElementById('btnSalvarSetor').innerText = 'Atualizar';
-    });
-  });
-
   document.querySelectorAll('.btn-excluir-setor').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const idx = e.currentTarget.getAttribute('data-index');
-      const nomeSetor = setores[idx];
+    btn.addEventListener('click', async (e) => {
+      const nomeSetor = e.currentTarget.getAttribute('data-nome');
 
       const emUso = equipamentos.some(eq => eq.setor === nomeSetor);
       if (emUso) {
@@ -89,17 +75,15 @@ function renderizarListaSetores() {
       }
 
       if (confirm(`Remover setor "${nomeSetor}"?`)) {
-        setores.splice(idx, 1);
-        salvarStorage();
-        renderizarSelectsSetores();
+        await supabase.from('setores').delete().eq('nome', nomeSetor);
+        await carregarDados();
         renderizarListaSetores();
-        filtrarEquipamentos();
       }
     });
   });
 }
 
-// Renderizar Grid
+// RENDERIZAR GRID DE EQUIPAMENTOS
 function renderizarGrid(lista) {
   const container = document.getElementById('gridEquipamentos');
   if (!container) return;
@@ -168,6 +152,7 @@ function filtrarEquipamentos() {
   renderizarGrid(resultado);
 }
 
+// GENERATE QR CODE
 async function gerarQrCode(id) {
   const item = equipamentos.find(e => e.id === id);
   if (!item) return;
@@ -192,12 +177,18 @@ async function gerarQrCode(id) {
   }
 }
 
-function exibirDetalhesPorUrl() {
+// VER DETALHES VIA QR CODE (BUSCA DIRETO NO SUPABASE)
+async function exibirDetalhesPorUrl() {
   const urlParams = new URLSearchParams(window.location.search);
   const ativoId = urlParams.get('ativo');
 
   if (ativoId) {
-    const item = equipamentos.find(e => e.id.toLowerCase() === ativoId.toLowerCase());
+    const { data: item } = await supabase
+      .from('equipamentos')
+      .select('*')
+      .ilike('id', ativoId)
+      .single();
+
     if (item) {
       document.getElementById('detalheId').innerText = item.id;
       document.getElementById('detalheSetor').innerText = item.setor || 'Não definido';
@@ -211,15 +202,19 @@ function exibirDetalhesPorUrl() {
   }
 }
 
-function excluirEquipamento(id) {
+// EXCLUIR ATIVO
+async function excluirEquipamento(id) {
   if (confirm(`Tem certeza que deseja remover o equipamento ${id}?`)) {
-    equipamentos = equipamentos.filter(e => e.id !== id);
-    salvarStorage();
-    filtrarEquipamentos();
+    const { error } = await supabase.from('equipamentos').delete().eq('id', id);
+    if (!error) {
+      await carregarDados();
+    } else {
+      alert('Erro ao excluir equipamento.');
+    }
   }
 }
 
-// Eventos Setores
+// EVENTOS DE SETORES
 document.getElementById('btnAbrirSetores')?.addEventListener('click', () => {
   renderizarListaSetores();
   document.getElementById('modalSetores').classList.remove('hidden');
@@ -228,42 +223,24 @@ document.getElementById('btnAbrirSetores')?.addEventListener('click', () => {
 document.getElementById('btnFecharSetores')?.addEventListener('click', () => {
   document.getElementById('modalSetores').classList.add('hidden');
   document.getElementById('formSetor').reset();
-  document.getElementById('setorEditIdx').value = "-1";
-  document.getElementById('btnSalvarSetor').innerText = 'Adicionar';
 });
 
-document.getElementById('formSetor')?.addEventListener('submit', (e) => {
+document.getElementById('formSetor')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const nome = document.getElementById('inputSetorNome').value.trim();
-  const idx = parseInt(document.getElementById('setorEditIdx').value);
-
   if (!nome) return;
 
-  if (idx >= 0) {
-    const antigo = setores[idx];
-    setores[idx] = nome;
-    equipamentos.forEach(eq => {
-      if (eq.setor === antigo) eq.setor = nome;
-    });
+  const { error } = await supabase.from('setores').insert([{ nome }]);
+  if (error) {
+    alert('Erro: setor já cadastrado.');
   } else {
-    if (setores.includes(nome)) {
-      alert('Setor já existente!');
-      return;
-    }
-    setores.push(nome);
+    document.getElementById('inputSetorNome').value = '';
+    await carregarDados();
+    renderizarListaSetores();
   }
-
-  document.getElementById('inputSetorNome').value = '';
-  document.getElementById('setorEditIdx').value = "-1";
-  document.getElementById('btnSalvarSetor').innerText = 'Adicionar';
-
-  salvarStorage();
-  renderizarSelectsSetores();
-  renderizarListaSetores();
-  filtrarEquipamentos();
 });
 
-// Eventos Equipamentos
+// EVENTOS DE EQUIPAMENTOS
 document.getElementById('campoBusca')?.addEventListener('input', filtrarEquipamentos);
 document.getElementById('filtroSetor')?.addEventListener('change', filtrarEquipamentos);
 
@@ -287,7 +264,7 @@ document.getElementById('btnFecharDetalhes')?.addEventListener('click', () => {
 
 document.getElementById('btnImprimir')?.addEventListener('click', () => window.print());
 
-document.getElementById('formEquipamento')?.addEventListener('submit', (e) => {
+document.getElementById('formEquipamento')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   
   const novo = {
@@ -299,15 +276,16 @@ document.getElementById('formEquipamento')?.addEventListener('submit', (e) => {
     local: document.getElementById('cadLocal').value.trim()
   };
 
-  equipamentos.push(novo);
-  salvarStorage();
-  filtrarEquipamentos();
-  
-  document.getElementById('modalCadastro').classList.add('hidden');
-  document.getElementById('formEquipamento').reset();
+  const { error } = await supabase.from('equipamentos').insert([novo]);
+
+  if (error) {
+    alert('Erro ao cadastrar: Verifique se o ID já existe.');
+  } else {
+    await carregarDados();
+    document.getElementById('modalCadastro').classList.add('hidden');
+    document.getElementById('formEquipamento').reset();
+  }
 });
 
-// Inicialização
-renderizarSelectsSetores();
-filtrarEquipamentos();
-exibirDetalhesPorUrl();
+// INICIALIZAR
+carregarDados();
