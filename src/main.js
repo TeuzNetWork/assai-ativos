@@ -8,15 +8,15 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ESTADOS LOCAIS
-let setores = ["Açougue", "Hortifrúti", "Frente de Caixa", "Padaria", "Depósito"];
+let setores = []; // Guarda objetos { id, nome }
 let equipamentos = [];
 
 // CARREGAR DADOS DO SUPABASE
 async function carregarDados() {
   try {
-    const { data: dataSetores, error: errSetores } = await supabase.from('setores').select('nome').order('nome');
-    if (!errSetores && dataSetores && dataSetores.length > 0) {
-      setores = dataSetores.map(s => s.nome);
+    const { data: dataSetores, error: errSetores } = await supabase.from('setores').select('*').order('nome');
+    if (!errSetores && dataSetores) {
+      setores = dataSetores;
     }
 
     const { data: dataEquip, error: errEquip } = await supabase.from('equipamentos').select('*').order('created_at', { ascending: false });
@@ -43,9 +43,9 @@ function renderizarSelectsSetores() {
   filtroSetor.innerHTML = '<option value="">Todos os Setores</option>';
   cadSetor.innerHTML = '';
 
-  setores.forEach(setor => {
-    filtroSetor.innerHTML += `<option value="${setor}">${setor}</option>`;
-    cadSetor.innerHTML += `<option value="${setor}">${setor}</option>`;
+  setores.forEach(s => {
+    filtroSetor.innerHTML += `<option value="${s.nome}">${s.nome}</option>`;
+    cadSetor.innerHTML += `<option value="${s.nome}">${s.nome}</option>`;
   });
 
   filtroSetor.value = valorFiltroAtual;
@@ -62,18 +62,23 @@ function renderizarListaSetores() {
     return;
   }
 
-  setores.forEach(setor => {
+  setores.forEach(s => {
     const li = document.createElement('li');
-    li.className = "flex justify-between items-center p-3 hover:bg-slate-50";
+    li.className = "flex justify-between items-center p-3 hover:bg-slate-50 border-b border-slate-100";
     li.innerHTML = `
-      <span class="text-sm font-semibold text-slate-800">${setor}</span>
-      <button data-nome="${setor}" class="btn-excluir-setor text-xs font-bold text-red-500 hover:text-red-700">Excluir</button>
+      <span class="text-sm font-semibold text-slate-800">${s.nome}</span>
+      <div class="flex gap-2">
+        <button data-id="${s.id}" data-nome="${s.nome}" class="btn-editar-setor text-xs font-bold text-amber-600 hover:text-amber-800">Editar</button>
+        <button data-id="${s.id}" data-nome="${s.nome}" class="btn-excluir-setor text-xs font-bold text-red-500 hover:text-red-700">Excluir</button>
+      </div>
     `;
     lista.appendChild(li);
   });
 
+  // Ação de Excluir Setor
   document.querySelectorAll('.btn-excluir-setor').forEach(btn => {
     btn.addEventListener('click', async (e) => {
+      const id = e.currentTarget.getAttribute('data-id');
       const nomeSetor = e.currentTarget.getAttribute('data-nome');
 
       const emUso = equipamentos.some(eq => eq.setor === nomeSetor);
@@ -83,7 +88,41 @@ function renderizarListaSetores() {
       }
 
       if (confirm(`Remover setor "${nomeSetor}"?`)) {
-        await supabase.from('setores').delete().eq('nome', nomeSetor);
+        const { error } = await supabase.from('setores').delete().eq('id', id);
+        if (!error) {
+          await carregarDados();
+          renderizarListaSetores();
+        } else {
+          alert('Erro ao excluir setor no banco.');
+        }
+      }
+    });
+  });
+
+  // Ação de Editar Setor
+  document.querySelectorAll('.btn-editar-setor').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const id = e.currentTarget.getAttribute('data-id');
+      const nomeAntigo = e.currentTarget.getAttribute('data-nome');
+      const novoNome = prompt("Digite o novo nome para o setor:", nomeAntigo);
+
+      if (novoNome && novoNome.trim() !== "" && novoNome !== nomeAntigo) {
+        const nomeFormatado = novoNome.trim();
+        
+        // Atualiza na tabela de setores
+        const { error } = await supabase.from('setores').update({ nome: nomeFormatado }).eq('id', id);
+        
+        if (error) {
+          alert('Erro ao atualizar setor (talvez já exista um com esse nome).');
+          return;
+        }
+
+        // Atualiza em cascata os equipamentos vinculados para manter a integridade
+        const eqVinculados = equipamentos.filter(eq => eq.setor === nomeAntigo);
+        for (let eq of eqVinculados) {
+          await supabase.from('equipamentos').update({ setor: nomeFormatado }).eq('id', eq.id);
+        }
+
         await carregarDados();
         renderizarListaSetores();
       }
