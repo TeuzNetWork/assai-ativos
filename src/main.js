@@ -2,21 +2,21 @@ import './style.css';
 import QRCode from 'qrcode';
 import { createClient } from '@supabase/supabase-js';
 
-// CONEXÃO SUPABASE[cite: 11]
+// CONEXÃO SUPABASE
 const SUPABASE_URL = 'https://ktfzvlotpowhwumpjbjw.supabase.co'; 
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0Znp2bG90cG93aHd1d3BqYmp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxODAzMzAsImV4cCI6MjEwMzc1NjMzMH0.Epox8sNR_-mRRUvXyFUFnJ0Qjjo8m2S9xQZNj_PFj-Y'; 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// ESTADOS LOCAIS[cite: 11]
 let setores = []; 
 let equipamentos = [];
 
-// CARREGAR DADOS DO SUPABASE[cite: 11]
 async function carregarDados() {
   try {
     const { data: dataSetores, error: errSetores } = await supabase.from('setores').select('*').order('nome');
     if (!errSetores && dataSetores) {
       setores = dataSetores;
+    } else {
+      console.error("Erro setores:", errSetores);
     }
 
     const { data: dataEquip, error: errEquip } = await supabase.from('equipamentos').select('*').order('created_at', { ascending: false });
@@ -32,7 +32,6 @@ async function carregarDados() {
   exibirDetalhesPorUrl();
 }
 
-// RENDERIZAR SELECTS[cite: 11]
 function renderizarSelectsSetores() {
   const filtroSetor = document.getElementById('filtroSetor');
   const cadSetor = document.getElementById('cadSetor');
@@ -51,7 +50,6 @@ function renderizarSelectsSetores() {
   filtroSetor.value = valorFiltroAtual;
 }
 
-// RENDERIZAR GERENCIADOR DE SETORES[cite: 11]
 function renderizarListaSetores() {
   const lista = document.getElementById('listaSetores');
   if (!lista) return;
@@ -64,7 +62,7 @@ function renderizarListaSetores() {
 
   setores.forEach(s => {
     const li = document.createElement('li');
-    li.className = "flex justify-between items-center p-3 hover:bg-slate-50";
+    li.className = "flex justify-between items-center p-3 hover:bg-slate-50 border-b border-slate-100";
     li.innerHTML = `
       <span class="text-sm font-semibold text-slate-800">${s.nome}</span>
       <div class="flex gap-2">
@@ -75,7 +73,6 @@ function renderizarListaSetores() {
     lista.appendChild(li);
   });
 
-  // Ação de Excluir Setor[cite: 11]
   document.querySelectorAll('.btn-excluir-setor').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const id = e.currentTarget.getAttribute('data-id');
@@ -93,26 +90,21 @@ function renderizarListaSetores() {
           await carregarDados();
           renderizarListaSetores();
         } else {
-          alert('Erro ao excluir setor no banco.');
+          alert('Erro ao excluir setor.');
         }
       }
     });
   });
 
-  // Ação de Editar Setor (Usa o formulário integrado do HTML)[cite: 9, 11]
   document.querySelectorAll('.btn-editar-setor').forEach(btn => {
     btn.addEventListener('click', (e) => {
-      const id = e.currentTarget.getAttribute('data-id');
-      const nome = e.currentTarget.getAttribute('data-nome');
-      
-      document.getElementById('setorEditIdx').value = id;
-      document.getElementById('inputSetorNome').value = nome;
+      document.getElementById('setorEditIdx').value = e.currentTarget.getAttribute('data-id');
+      document.getElementById('inputSetorNome').value = e.currentTarget.getAttribute('data-nome');
       document.getElementById('btnSalvarSetor').innerText = "Atualizar";
     });
   });
 }
 
-// RENDERIZAR GRID DE EQUIPAMENTOS[cite: 11]
 function renderizarGrid(lista) {
   const container = document.getElementById('gridEquipamentos');
   if (!container) return;
@@ -141,7 +133,7 @@ function renderizarGrid(lista) {
       </div>
       <div class="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center">
         <button data-id="${item.id}" class="btn-qr text-xs bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold px-3 py-1.5 rounded transition">
-          📱 QR Code / Etiqueta
+          📱 QR Code
         </button>
         <button data-id="${item.id}" class="btn-excluir text-xs text-red-500 hover:text-red-700 font-semibold">
           Excluir
@@ -181,7 +173,6 @@ function filtrarEquipamentos() {
   renderizarGrid(resultado);
 }
 
-// GERAR QR CODE[cite: 11]
 async function gerarQrCode(id) {
   const item = equipamentos.find(e => e.id === id);
   if (!item) return;
@@ -195,30 +186,20 @@ async function gerarQrCode(id) {
   const urlAtivo = `${urlBase}?ativo=${encodeURIComponent(item.id)}`;
 
   try {
-    await QRCode.toCanvas(canvas, urlAtivo, {
-      width: 160,
-      margin: 1,
-      errorCorrectionLevel: 'M'
-    });
+    await QRCode.toCanvas(canvas, urlAtivo, { width: 160, margin: 1, errorCorrectionLevel: 'M' });
     document.getElementById('modalQrCode').classList.remove('hidden');
   } catch (err) {
-    console.error("Erro ao gerar QR Code:", err);
+    console.error("Erro QR:", err);
   }
 }
 
-// VER DETALHES VIA QR CODE[cite: 11]
 async function exibirDetalhesPorUrl() {
   const urlParams = new URLSearchParams(window.location.search);
   const ativoId = urlParams.get('ativo');
 
   if (ativoId) {
     try {
-      const { data: item } = await supabase
-        .from('equipamentos')
-        .select('*')
-        .ilike('id', ativoId)
-        .single();
-
+      const { data: item } = await supabase.from('equipamentos').select('*').ilike('id', ativoId).single();
       if (item) {
         document.getElementById('detalheId').innerText = item.id;
         document.getElementById('detalheSetor').innerText = item.setor || 'Não definido';
@@ -226,28 +207,23 @@ async function exibirDetalhesPorUrl() {
         document.getElementById('detalheTipo').innerText = item.tipo;
         document.getElementById('detalheModelo').innerText = item.modelo;
         document.getElementById('detalheLocal').innerText = item.local || 'Não informado';
-
         document.getElementById('modalDetalhes').classList.remove('hidden');
       }
     } catch (e) {
-      console.error("Erro ao carregar detalhes:", e);
+      console.error("Erro detalhes:", e);
     }
   }
 }
 
-// EXCLUIR ATIVO[cite: 11]
 async function excluirEquipamento(id) {
-  if (confirm(`Tem certeza que deseja remover o equipamento ${id}?`)) {
+  if (confirm(`Remover equipamento ${id}?`)) {
     const { error } = await supabase.from('equipamentos').delete().eq('id', id);
-    if (!error) {
-      await carregarDados();
-    } else {
-      alert('Erro ao excluir equipamento.');
-    }
+    if (!error) await carregarDados();
+    else alert('Erro ao excluir.');
   }
 }
 
-// EVENTOS DE SETORES[cite: 9, 11]
+// EVENTOS DE SETORES
 document.getElementById('btnAbrirSetores')?.addEventListener('click', () => {
   renderizarListaSetores();
   document.getElementById('modalSetores').classList.remove('hidden');
@@ -267,25 +243,23 @@ document.getElementById('formSetor')?.addEventListener('submit', async (e) => {
   if (!nome) return;
 
   if (idEdit === "-1") {
-    // Inserir novo setor
     const { error } = await supabase.from('setores').insert([{ nome }]);
     if (error) {
-      alert('Erro: setor já cadastrado ou falha na rede.');
+      alert('Erro ao cadastrar setor: ' + error.message);
       return;
     }
   } else {
-    // Atualizar setor existente e refletir em cascata nos equipamentos
     const setorAntigo = setores.find(s => s.id == idEdit)?.nome;
     const { error } = await supabase.from('setores').update({ nome }).eq('id', idEdit);
     
     if (error) {
-      alert('Erro ao atualizar setor.');
+      alert('Erro ao atualizar setor: ' + error.message);
       return;
     }
 
     if (setorAntigo) {
-      const eqVinculados = equipamentos.filter(eq => eq.setor === setorAntigo);
-      for (let eq of eqVinculados) {
+      const vinculados = equipamentos.filter(eq => eq.setor === setorAntigo);
+      for (let eq of vinculados) {
         await supabase.from('equipamentos').update({ setor: nome }).eq('id', eq.id);
       }
     }
@@ -298,33 +272,23 @@ document.getElementById('formSetor')?.addEventListener('submit', async (e) => {
   renderizarListaSetores();
 });
 
-// EVENTOS DE EQUIPAMENTOS[cite: 11]
+// OUTROS EVENTOS
 document.getElementById('campoBusca')?.addEventListener('input', filtrarEquipamentos);
 document.getElementById('filtroSetor')?.addEventListener('change', filtrarEquipamentos);
-
-document.getElementById('btnAbrirModal')?.addEventListener('click', () => {
-  document.getElementById('modalCadastro').classList.remove('hidden');
-});
-
+document.getElementById('btnAbrirModal')?.addEventListener('click', () => document.getElementById('modalCadastro').classList.remove('hidden'));
 document.getElementById('btnFecharCadastro')?.addEventListener('click', () => {
   document.getElementById('modalCadastro').classList.add('hidden');
   document.getElementById('formEquipamento').reset();
 });
-
-document.getElementById('btnFecharQrCode')?.addEventListener('click', () => {
-  document.getElementById('modalQrCode').classList.add('hidden');
-});
-
+document.getElementById('btnFecharQrCode')?.addEventListener('click', () => document.getElementById('modalQrCode').classList.add('hidden'));
 document.getElementById('btnFecharDetalhes')?.addEventListener('click', () => {
   document.getElementById('modalDetalhes').classList.add('hidden');
   window.history.pushState({}, document.title, window.location.pathname);
 });
-
 document.getElementById('btnImprimir')?.addEventListener('click', () => window.print());
 
 document.getElementById('formEquipamento')?.addEventListener('submit', async (e) => {
   e.preventDefault();
-  
   const novo = {
     id: document.getElementById('cadNome').value.trim().toUpperCase(),
     setor: document.getElementById('cadSetor').value,
@@ -335,9 +299,8 @@ document.getElementById('formEquipamento')?.addEventListener('submit', async (e)
   };
 
   const { error } = await supabase.from('equipamentos').insert([novo]);
-
   if (error) {
-    alert('Erro ao cadastrar: Verifique se o ID já existe.');
+    alert('Erro ao cadastrar equipamento: ' + error.message);
   } else {
     await carregarDados();
     document.getElementById('modalCadastro').classList.add('hidden');
@@ -345,5 +308,4 @@ document.getElementById('formEquipamento')?.addEventListener('submit', async (e)
   }
 });
 
-// INICIALIZAR[cite: 11]
 carregarDados();
