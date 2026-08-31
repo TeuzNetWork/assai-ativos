@@ -1,18 +1,93 @@
 import './style.css';
 import QRCode from 'qrcode';
 
-const dadosPadrao = [
+// Dados Padrão
+const setoresPadrao = ["Açougue", "Hortifrúti", "Frente de Caixa", "Padaria", "Depósito"];
+const equipamentosPadrao = [
   { id: "BAL-AC-01", setor: "Açougue", tipo: "Balança", ip: "192.168.1.50", modelo: "Toledo Prix 5", local: "Ponto A-12" },
   { id: "IMP-AC-01", setor: "Açougue", tipo: "Impressora Cartazista", ip: "192.168.1.51", modelo: "Zebra ZD220", local: "Ponto A-13" },
   { id: "BAL-HF-01", setor: "Hortifrúti", tipo: "Balança", ip: "192.168.1.60", modelo: "Toledo Prix 5", local: "Ilha Central" }
 ];
 
-let equipamentos = JSON.parse(localStorage.getItem('ti_assai_ativos')) || dadosPadrao;
+// Estado
+let setores = JSON.parse(localStorage.getItem('ti_assai_setores')) || setoresPadrao;
+let equipamentos = JSON.parse(localStorage.getItem('ti_assai_ativos')) || equipamentosPadrao;
 
-function salvarNoStorage() {
+function salvarStorage() {
+  localStorage.setItem('ti_assai_setores', JSON.stringify(setores));
   localStorage.setItem('ti_assai_ativos', JSON.stringify(equipamentos));
 }
 
+// Renderizar Opções dos Selects de Setores
+function renderizarSelectsSetores() {
+  const filtroSetor = document.getElementById('filtroSetor');
+  const cadSetor = document.getElementById('cadSetor');
+  if (!filtroSetor || !cadSetor) return;
+
+  const valorFiltroAtual = filtroSetor.value;
+  
+  filtroSetor.innerHTML = '<option value="">Todos os Setores</option>';
+  cadSetor.innerHTML = '';
+
+  setores.forEach(setor => {
+    filtroSetor.innerHTML += `<option value="${setor}">${setor}</option>`;
+    cadSetor.innerHTML += `<option value="${setor}">${setor}</option>`;
+  });
+
+  filtroSetor.value = valorFiltroAtual;
+}
+
+// Renderizar Modal de Gerenciamento de Setores
+function renderizarListaSetores() {
+  const lista = document.getElementById('listaSetores');
+  if (!lista) return;
+  lista.innerHTML = '';
+
+  setores.forEach((setor, index) => {
+    const li = document.createElement('li');
+    li.className = "flex justify-between items-center p-3 hover:bg-slate-50";
+    li.innerHTML = `
+      <span class="text-sm font-semibold text-slate-800">${setor}</span>
+      <div class="flex gap-2">
+        <button data-index="${index}" class="btn-editar-setor text-xs font-bold text-amber-600 hover:text-amber-800">Editar</button>
+        <button data-index="${index}" class="btn-excluir-setor text-xs font-bold text-red-500 hover:text-red-700">Excluir</button>
+      </div>
+    `;
+    lista.appendChild(li);
+  });
+
+  document.querySelectorAll('.btn-editar-setor').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const idx = e.currentTarget.getAttribute('data-index');
+      document.getElementById('inputSetorNome').value = setores[idx];
+      document.getElementById('setorEditIdx').value = idx;
+      document.getElementById('btnSalvarSetor').innerText = 'Atualizar';
+    });
+  });
+
+  document.querySelectorAll('.btn-excluir-setor').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const idx = e.currentTarget.getAttribute('data-index');
+      const nomeSetor = setores[idx];
+
+      const emUso = equipamentos.some(eq => eq.setor === nomeSetor);
+      if (emUso) {
+        alert(`Não é possível excluir o setor "${nomeSetor}" pois existem equipamentos vinculados a ele!`);
+        return;
+      }
+
+      if (confirm(`Remover setor "${nomeSetor}"?`)) {
+        setores.splice(idx, 1);
+        salvarStorage();
+        renderizarSelectsSetores();
+        renderizarListaSetores();
+        filtrarEquipamentos();
+      }
+    });
+  });
+}
+
+// Renderizar Grid de Equipamentos
 function renderizarGrid(lista) {
   const container = document.getElementById('gridEquipamentos');
   if (!container) return;
@@ -26,7 +101,6 @@ function renderizarGrid(lista) {
   lista.forEach(item => {
     const card = document.createElement('div');
     card.className = "bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between hover:shadow-md transition";
-    
     let localTexto = item.local ? `<p class="text-xs text-slate-400 mt-0.5">Local: ${item.local}</p>` : '';
 
     card.innerHTML = `
@@ -49,7 +123,6 @@ function renderizarGrid(lista) {
         </button>
       </div>
     `;
-    
     container.appendChild(card);
   });
 
@@ -91,8 +164,6 @@ async function gerarQrCode(id) {
   document.getElementById('qrModelo').innerText = item.modelo;
 
   const canvas = document.getElementById('canvasQrCode');
-  
-  // URL dinâmica que aponta para o próprio servidor com o parâmetro do ativo
   const urlBase = window.location.origin + window.location.pathname;
   const urlAtivo = `${urlBase}?ativo=${encodeURIComponent(item.id)}`;
 
@@ -130,12 +201,56 @@ function exibirDetalhesPorUrl() {
 function excluirEquipamento(id) {
   if (confirm(`Tem certeza que deseja remover o equipamento ${id}?`)) {
     equipamentos = equipamentos.filter(e => e.id !== id);
-    salvarNoStorage();
+    salvarStorage();
     filtrarEquipamentos();
   }
 }
 
-// Eventos
+// Eventos Setores
+document.getElementById('btnAbrirSetores')?.addEventListener('click', () => {
+  renderizarListaSetores();
+  document.getElementById('modalSetores').classList.remove('hidden');
+});
+
+document.getElementById('btnFecharSetores')?.addEventListener('click', () => {
+  document.getElementById('modalSetores').classList.add('hidden');
+  document.getElementById('formSetor').reset();
+  document.getElementById('setorEditIdx').value = "-1";
+  document.getElementById('btnSalvarSetor').innerText = 'Adicionar';
+});
+
+document.getElementById('formSetor')?.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const nome = document.getElementById('inputSetorNome').value.trim();
+  const idx = parseInt(document.getElementById('setorEditIdx').value);
+
+  if (!nome) return;
+
+  if (idx >= 0) {
+    const antigo = setores[idx];
+    setores[idx] = nome;
+    equipamentos.forEach(eq => {
+      if (eq.sector === antigo || eq.setor === antigo) eq.setor = nome;
+    });
+  } else {
+    if (setores.includes(nome)) {
+      alert('Setor já existente!');
+      return;
+    }
+    setores.push(nome);
+  }
+
+  document.getElementById('inputSetorNome').value = '';
+  document.getElementById('setorEditIdx').value = "-1";
+  document.getElementById('btnSalvarSetor').innerText = 'Adicionar';
+
+  salvarStorage();
+  renderizarSelectsSetores();
+  renderizarListaSetores();
+  filtrarEquipamentos();
+});
+
+// Eventos Equipamentos
 document.getElementById('campoBusca')?.addEventListener('input', filtrarEquipamentos);
 document.getElementById('filtroSetor')?.addEventListener('change', filtrarEquipamentos);
 
@@ -154,7 +269,6 @@ document.getElementById('btnFecharQrCode')?.addEventListener('click', () => {
 
 document.getElementById('btnFecharDetalhes')?.addEventListener('click', () => {
   document.getElementById('modalDetalhes').classList.add('hidden');
-  // Limpa a URL removendo a query string sem recarregar a página
   window.history.pushState({}, document.title, window.location.pathname);
 });
 
@@ -173,7 +287,7 @@ document.getElementById('formEquipamento')?.addEventListener('submit', (e) => {
   };
 
   equipamentos.push(novo);
-  salvarNoStorage();
+  salvarStorage();
   filtrarEquipamentos();
   
   document.getElementById('modalCadastro').classList.add('hidden');
@@ -181,5 +295,6 @@ document.getElementById('formEquipamento')?.addEventListener('submit', (e) => {
 });
 
 // Inicialização
+renderizarSelectsSetores();
 filtrarEquipamentos();
 exibirDetalhesPorUrl();

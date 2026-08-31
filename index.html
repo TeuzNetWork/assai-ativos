@@ -13,30 +13,29 @@
         <h1 class="text-2xl font-bold tracking-wide">ASSAÍ ATACADISTA</h1>
         <p class="text-xs font-semibold opacity-80">Painel de Controle de Ativos - TI</p>
       </div>
-      <button id="btnAbrirModal" class="bg-slate-900 text-white hover:bg-slate-800 font-bold px-4 py-2 rounded-lg shadow transition text-sm">
-        + Cadastrar Equipamento
-      </button>
+      <div class="flex gap-2">
+        <button id="btnAbrirSetores" class="bg-slate-800 text-amber-400 hover:bg-slate-900 font-bold px-3 py-2 rounded-lg shadow transition text-sm">
+          ⚙️ Setores
+        </button>
+        <button id="btnAbrirModal" class="bg-slate-900 text-white hover:bg-slate-800 font-bold px-4 py-2 rounded-lg shadow transition text-sm">
+          + Cadastrar Equipamento
+        </button>
+      </div>
     </div>
   </header>
 
   <main class="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
     <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col sm:flex-row gap-4">
       <input type="text" id="campoBusca" placeholder="Buscar por Nome, IP, Modelo ou Setor..." class="flex-1 border border-slate-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
-      
       <select id="filtroSetor" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
         <option value="">Todos os Setores</option>
-        <option value="Açougue">Açougue</option>
-        <option value="Hortifrúti">Hortifrúti</option>
-        <option value="Frente de Caixa">Frente de Caixa</option>
-        <option value="Padaria">Padaria</option>
-        <option value="Depósito">Depósito</option>
       </select>
     </div>
 
     <div id="gridEquipamentos" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
   </main>
 
-  <!-- Modal Cadastro -->
+  <!-- Modal Cadastro Equipamento -->
   <div id="modalCadastro" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
       <h2 class="text-xl font-bold text-slate-900">Novo Equipamento</h2>
@@ -50,13 +49,7 @@
         <div class="grid grid-cols-2 gap-2">
           <div>
             <label class="text-xs font-bold text-slate-600 uppercase">Setor</label>
-            <select id="cadSetor" required class="w-full border border-slate-300 rounded p-2 text-sm">
-              <option value="Açougue">Açougue</option>
-              <option value="Hortifrúti">Hortifrúti</option>
-              <option value="Frente de Caixa">Frente de Caixa</option>
-              <option value="Padaria">Padaria</option>
-              <option value="Depósito">Depósito</option>
-            </select>
+            <select id="cadSetor" required class="w-full border border-slate-300 rounded p-2 text-sm"></select>
           </div>
           <div>
             <label class="text-xs font-bold text-slate-600 uppercase">Tipo</label>
@@ -93,6 +86,27 @@
     </div>
   </div>
 
+  <!-- Modal Gerenciar Setores -->
+  <div id="modalSetores" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+      <h2 class="text-xl font-bold text-slate-900">Gerenciar Setores</h2>
+      
+      <form id="formSetor" class="flex gap-2">
+        <input type="hidden" id="setorEditIdx" value="-1">
+        <input type="text" id="inputSetorNome" placeholder="Novo setor..." required class="flex-1 border border-slate-300 rounded p-2 text-sm">
+        <button type="submit" id="btnSalvarSetor" class="px-4 py-2 text-sm bg-amber-500 text-slate-900 rounded font-bold hover:bg-amber-400">Adicionar</button>
+      </form>
+
+      <div class="border rounded-lg max-h-52 overflow-y-auto divide-y divide-slate-100">
+        <ul id="listaSetores"></ul>
+      </div>
+
+      <div class="flex justify-end pt-2">
+        <button type="button" id="btnFecharSetores" class="px-4 py-2 text-sm bg-slate-200 text-slate-800 rounded font-semibold hover:bg-slate-300">Fechar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal QR Code / Etiqueta -->
   <div id="modalQrCode" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 text-center space-y-4">
@@ -113,7 +127,7 @@
     </div>
   </div>
 
-  <!-- Modal Detalhes do Ativo (Página de Visualização via QR Code) -->
+  <!-- Modal Detalhes do Ativo -->
   <div id="modalDetalhes" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100">
       <div class="bg-amber-500 p-4 text-slate-900 flex justify-between items-center">
