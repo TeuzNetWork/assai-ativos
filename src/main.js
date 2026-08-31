@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 
 // CONEXÃO SUPABASE
 const SUPABASE_URL = 'https://ktfzvlotpowhwumpjbjw.supabase.co'; 
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0Znp2bG90cG93aHd1d3BqYmp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxODAzMzAsImV4cCI6MjEwMzc1NjMzMH0.Epox8sNR_-mRRUvXyFUFnJ0Qjjo8m2S9xQZNj_PFj-Y'; 
+const SUPABASE_KEY = 'sb_publishable_IphV_XMJ__q5IctB_csEFw_ofZ8IiPE'; 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let setores = []; 
