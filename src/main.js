@@ -8,16 +8,24 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ESTADOS LOCAIS
-let setores = [];
+let setores = ["Açougue", "Hortifrúti", "Frente de Caixa", "Padaria", "Depósito"];
 let equipamentos = [];
 
 // CARREGAR DADOS DO SUPABASE
 async function carregarDados() {
-  const { data: dataSetores } = await supabase.from('setores').select('nome').order('nome');
-  if (dataSetores) setores = dataSetores.map(s => s.nome);
+  try {
+    const { data: dataSetores, error: errSetores } = await supabase.from('setores').select('nome').order('nome');
+    if (!errSetores && dataSetores && dataSetores.length > 0) {
+      setores = dataSetores.map(s => s.nome);
+    }
 
-  const { data: dataEquip } = await supabase.from('equipamentos').select('*').order('created_at', { ascending: false });
-  if (dataEquip) equipamentos = dataEquip;
+    const { data: dataEquip, error: errEquip } = await supabase.from('equipamentos').select('*').order('created_at', { ascending: false });
+    if (!errEquip && dataEquip) {
+      equipamentos = dataEquip;
+    }
+  } catch (e) {
+    console.error("Erro ao carregar do Supabase:", e);
+  }
 
   renderizarSelectsSetores();
   filtrarEquipamentos();
@@ -152,7 +160,7 @@ function filtrarEquipamentos() {
   renderizarGrid(resultado);
 }
 
-// GENERATE QR CODE
+// GERAR QR CODE
 async function gerarQrCode(id) {
   const item = equipamentos.find(e => e.id === id);
   if (!item) return;
@@ -177,27 +185,31 @@ async function gerarQrCode(id) {
   }
 }
 
-// VER DETALHES VIA QR CODE (BUSCA DIRETO NO SUPABASE)
+// VER DETALHES VIA QR CODE
 async function exibirDetalhesPorUrl() {
   const urlParams = new URLSearchParams(window.location.search);
   const ativoId = urlParams.get('ativo');
 
   if (ativoId) {
-    const { data: item } = await supabase
-      .from('equipamentos')
-      .select('*')
-      .ilike('id', ativoId)
-      .single();
+    try {
+      const { data: item } = await supabase
+        .from('equipamentos')
+        .select('*')
+        .ilike('id', ativoId)
+        .single();
 
-    if (item) {
-      document.getElementById('detalheId').innerText = item.id;
-      document.getElementById('detalheSetor').innerText = item.setor || 'Não definido';
-      document.getElementById('detalheIp').innerText = item.ip;
-      document.getElementById('detalheTipo').innerText = item.tipo;
-      document.getElementById('detalheModelo').innerText = item.modelo;
-      document.getElementById('detalheLocal').innerText = item.local || 'Não informado';
+      if (item) {
+        document.getElementById('detalheId').innerText = item.id;
+        document.getElementById('detalheSetor').innerText = item.setor || 'Não definido';
+        document.getElementById('detalheIp').innerText = item.ip;
+        document.getElementById('detalheTipo').innerText = item.tipo;
+        document.getElementById('detalheModelo').innerText = item.modelo;
+        document.getElementById('detalheLocal').innerText = item.local || 'Não informado';
 
-      document.getElementById('modalDetalhes').classList.remove('hidden');
+        document.getElementById('modalDetalhes').classList.remove('hidden');
+      }
+    } catch (e) {
+      console.error("Erro ao carregar detalhes:", e);
     }
   }
 }
@@ -232,7 +244,7 @@ document.getElementById('formSetor')?.addEventListener('submit', async (e) => {
 
   const { error } = await supabase.from('setores').insert([{ nome }]);
   if (error) {
-    alert('Erro: setor já cadastrado.');
+    alert('Erro: setor já cadastrado ou falha na rede.');
   } else {
     document.getElementById('inputSetorNome').value = '';
     await carregarDados();
